@@ -30,6 +30,11 @@ app.use(cors({
 }));
 app.use(express.json());
 
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({ status: 'OK', message: 'Backend is running', timestamp: new Date().toISOString() });
+});
+
 // Auth routes
 app.use('/api/auth', authRoutes);
 
