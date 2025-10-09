@@ -16,7 +16,18 @@ console.log('🔵 3. Initializing Express app...');
 const app = express();
 
 console.log('🔵 4. Applying middleware...');
-app.use(cors());
+app.use(cors({
+  origin: [
+    'http://localhost:3001',
+    'http://localhost:3002', 
+    'http://localhost:3000',
+    'https://canva-frontend-huf5.onrender.com', // Add your frontend URL here
+    /\.onrender\.com$/ // Allow all onrender.com subdomains
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json());
 
 // Auth routes
@@ -25,7 +36,13 @@ app.use('/api/auth', authRoutes);
 const server = http.createServer(app);
 const io = new Server(server, { 
   cors: { 
-    origin: ["http://localhost:3001", "http://localhost:3002", "http://localhost:3000"],
+    origin: [
+      "http://localhost:3001", 
+      "http://localhost:3002", 
+      "http://localhost:3000",
+      "https://canva-frontend-huf5.onrender.com",
+      /\.onrender\.com$/
+    ],
     methods: ["GET", "POST"],
     credentials: true
   }
