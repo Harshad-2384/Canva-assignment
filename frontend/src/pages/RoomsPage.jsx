@@ -27,7 +27,7 @@ const RoomsPage = () => {
   return (
     <div className="rooms-page">
       <div className="rooms-container">
-        <h1>🚪 Canvas Rooms</h1>
+        <h1>Canvas Rooms</h1>
         
         <div className="room-actions">
           <div className="action-card">
@@ -65,9 +65,9 @@ const RoomsPage = () => {
                 className="room-card"
                 onClick={() => navigate(`/canvas/${room.id}`)}
               >
-                <div className="room-icon">🎨</div>
+                <div className="room-icon">Room</div>
                 <h3>{room.name}</h3>
-                <p className="room-users">👥 {room.users} active users</p>
+                <p className="room-users">{room.users} active users</p>
                 <button className="btn-small">Join</button>
               </div>
             ))}

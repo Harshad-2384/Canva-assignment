@@ -20,7 +20,7 @@ const CanvasPage = () => {
   const [width, setWidth] = useState(5);
   const canvasBoardRef = useRef();
   
-  console.log('🎯 CanvasPage roomId:', roomId);
+  console.log('CanvasPage roomId:', roomId);
   
   // If no roomId from URL params, redirect to rooms page
   if (!roomId) {
@@ -69,14 +69,14 @@ const Navbar = () => {
     <nav className="navbar">
       <div className="nav-container">
         <Link to="/" className="nav-logo">
-          🎨 Canvas
+          Canvas
         </Link>
         <div className="nav-links">
           {token ? (
             <>
               <Link to="/canvas" className="nav-link">Canvas</Link>
               <Link to="/rooms" className="nav-link">Rooms</Link>
-              <span className="nav-user">👤 {userName}</span>
+              <span className="nav-user">{userName}</span>
               <button onClick={handleLogout} className="nav-button">Logout</button>
             </>
           ) : (

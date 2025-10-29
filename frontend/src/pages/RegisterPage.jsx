@@ -34,7 +34,7 @@ const RegisterPage = () => {
     <div className="auth-page">
       <div className="auth-container">
         <div className="auth-card">
-          <h2 className="auth-title">Create Account 🎨</h2>
+          <h2 className="auth-title">Create Account</h2>
           <p className="auth-subtitle">Join and start collaborating</p>
           
           <form onSubmit={handleSubmit} className="auth-form">

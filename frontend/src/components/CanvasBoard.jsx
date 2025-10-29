@@ -1,44 +1,45 @@
 import React, { useContext, useState, useEffect, useRef, useImperativeHandle } from 'react';
 import { Stage, Layer, Line, Circle, Text, Group } from 'react-konva';
 import { SocketContext } from '../contexts/SocketContext';
+import Chat from './Chat';
 
 const CanvasBoard = React.forwardRef(({ tool, color, width, roomId }, ref) => {
-  const socket = useContext(SocketContext);
+  const { socket } = useContext(SocketContext);
   const [strokes, setStrokes] = useState([]);
   const isDrawing = useRef(false);
   const stageRef = useRef(null);
   const [showCopied, setShowCopied] = useState(false);
   const [remoteUsers, setRemoteUsers] = useState({}); // { socketId: { name, x, y, isDrawing } }
   useEffect(() => {
-    console.log('🔍 CanvasBoard useEffect - socket:', !!socket, 'roomId:', roomId, 'socket.connected:', socket?.connected);
+    console.log('CanvasBoard useEffect - socket:', !!socket, 'roomId:', roomId, 'socket.connected:', socket?.connected);
     
     if (!socket || !roomId) {
-      console.log('❌ Missing socket or roomId, not joining room');
+      console.log('Missing socket or roomId, not joining room');
       return;
     }
 
     const joinRoom = () => {
-      console.log('✅ Attempting to join room:', roomId);
-      console.log('📤 Socket state - connected:', socket.connected, 'id:', socket.id);
+      console.log('Attempting to join room:', roomId);
+      console.log('Socket state - connected:', socket.connected, 'id:', socket.id);
       socket.emit('join-room', { roomId });
-      console.log('📤 join-room event emitted');
+      console.log('join-room event emitted');
     };
 
     // Force connection and join room
     if (!socket.connected) {
-      console.log('🔄 Socket not connected, forcing connection...');
+      console.log('Socket not connected, forcing connection...');
       socket.connect();
     }
     
     // Set up connect listener
     socket.on('connect', () => {
-      console.log('🎉 Socket connected! ID:', socket.id);
+      console.log('Socket connected! ID:', socket.id);
       joinRoom();
     });
     
     // Try to join immediately if already connected
     if (socket.connected) {
-      console.log('🔄 Socket already connected, joining room immediately');
+      console.log('Socket already connected, joining room immediately');
       joinRoom();
     }
 
@@ -51,7 +52,7 @@ const CanvasBoard = React.forwardRef(({ tool, color, width, roomId }, ref) => {
 
     // Listen for initial presence list
     socket.on('presence', ({ users }) => {
-      console.log('📋 Received presence:', users);
+      console.log('Received presence:', users);
       const usersMap = {};
       users.forEach(user => {
         if (user.socketId !== socket.id) {
@@ -69,7 +70,7 @@ const CanvasBoard = React.forwardRef(({ tool, color, width, roomId }, ref) => {
 
     // Remote cursor movement
     socket.on('remote-cursor', ({ socketId, x, y, user }) => {
-      console.log('🖱️ Remote cursor:', socketId, x, y, user?.name);
+      console.log('Remote cursor:', socketId, x, y, user?.name);
       setRemoteUsers(prev => ({
         ...prev,
         [socketId]: { 
@@ -99,8 +100,16 @@ const CanvasBoard = React.forwardRef(({ tool, color, width, roomId }, ref) => {
 
     // Listen for strokes from other users
     socket.on('remote-stroke', (stroke) => {
-      console.log('🎨 Received remote stroke');
-      setStrokes(prevStrokes => [...prevStrokes, stroke]);
+      console.log('Received remote stroke');
+      // Only add remote strokes if we're not currently drawing
+      if (!isDrawing.current) {
+        setStrokes(prevStrokes => [...prevStrokes, stroke]);
+      } else {
+        // If we're drawing, queue the stroke to be added later
+        setTimeout(() => {
+          setStrokes(prevStrokes => [...prevStrokes, stroke]);
+        }, 100);
+      }
     });
 
     // Cleanup listeners on unmount
@@ -140,27 +149,35 @@ const CanvasBoard = React.forwardRef(({ tool, color, width, roomId }, ref) => {
       socket.emit('cursor-move', { roomId, x: point.x, y: point.y });
       // Debug log every 100th movement
       if (Math.random() < 0.01) {
-        console.log('📤 Emitting cursor:', point.x, point.y);
+        console.log('Emitting cursor:', point.x, point.y);
       }
     }
 
     if (!isDrawing.current) return;
 
-    let lastStroke = strokes[strokes.length - 1];
-    lastStroke.points = lastStroke.points.concat([point.x, point.y]);
-
-    // Replace last stroke with the updated one
-    strokes.splice(strokes.length - 1, 1, lastStroke);
-    setStrokes(strokes.concat());
+    // Use functional update to avoid stale closure issues
+    setStrokes(prevStrokes => {
+      const newStrokes = [...prevStrokes];
+      const lastStroke = newStrokes[newStrokes.length - 1];
+      if (lastStroke) {
+        lastStroke.points = lastStroke.points.concat([point.x, point.y]);
+      }
+      return newStrokes;
+    });
   };
 
   const handleMouseUp = () => {
     if (!isDrawing.current) return;
     isDrawing.current = false;
-    const lastStroke = strokes[strokes.length - 1];
-    if (lastStroke && lastStroke.points.length > 2) {
-      socket.emit('draw-stroke', { roomId, stroke: lastStroke });
-    }
+    
+    // Get the current stroke and emit it
+    setStrokes(prevStrokes => {
+      const lastStroke = prevStrokes[prevStrokes.length - 1];
+      if (lastStroke && lastStroke.points.length > 2) {
+        socket.emit('draw-stroke', { roomId, stroke: lastStroke });
+      }
+      return prevStrokes; // Return unchanged since we're just emitting
+    });
     
     // Emit stop-draw event
     socket.emit('stop-draw', { roomId });
@@ -196,7 +213,7 @@ const CanvasBoard = React.forwardRef(({ tool, color, width, roomId }, ref) => {
 
   // Debug: Log remote users whenever they change
   useEffect(() => {
-    console.log('👥 Remote users updated:', remoteUsers);
+    console.log('Remote users updated:', remoteUsers);
   }, [remoteUsers]);
 
   return (
@@ -233,7 +250,7 @@ const CanvasBoard = React.forwardRef(({ tool, color, width, roomId }, ref) => {
             fontSize: '14px',
           }}
         >
-          {showCopied ? '✓ Copied!' : '📋 Copy ID'}
+          {showCopied ? 'Copied!' : 'Copy ID'}
         </button>
         <button
           onClick={copyShareLink}
@@ -248,7 +265,7 @@ const CanvasBoard = React.forwardRef(({ tool, color, width, roomId }, ref) => {
             fontSize: '14px',
           }}
         >
-          🔗 Copy Link
+          Copy Link
         </button>
         <div style={{
           padding: '8px 16px',
@@ -258,7 +275,7 @@ const CanvasBoard = React.forwardRef(({ tool, color, width, roomId }, ref) => {
           fontSize: '14px',
           color: '#333',
         }}>
-          👥 {activeUsersCount} online
+          {activeUsersCount} online
         </div>
       </div>
 
@@ -289,7 +306,7 @@ const CanvasBoard = React.forwardRef(({ tool, color, width, roomId }, ref) => {
                 background: user.isDrawing ? '#ec4899' : '#06b6d4' 
               }}></div>
               <span style={{ fontSize: '13px' }}>{user.name}</span>
-              {user.isDrawing && <span style={{ fontSize: '11px', color: '#ec4899' }}>✏️ drawing</span>}
+              {user.isDrawing && <span style={{ fontSize: '11px', color: '#ec4899' }}>drawing</span>}
             </div>
           ))}
         </div>
@@ -343,6 +360,16 @@ const CanvasBoard = React.forwardRef(({ tool, color, width, roomId }, ref) => {
         ))}
       </Layer>
     </Stage>
+      
+      {/* Chat Component */}
+      <div style={{
+        position: 'fixed',
+        bottom: '20px',
+        right: '20px',
+        zIndex: 1000
+      }}>
+        <Chat roomId={roomId} />
+      </div>
     </div>
   );
 });
