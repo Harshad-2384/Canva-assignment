@@ -1,0 +1,99 @@
+.video-container {
+  position: fixed;
+  top: 80px;
+  left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 1001;
+}
+
+.video-player {
+  position: relative;
+  width: 200px;
+  background: #2c3e50;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.video-player video {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.video-name {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 5px;
+  background: rgba(0, 0, 0, 0.5);
+  color: white;
+  text-align: center;
+  font-size: 14px;
+}
+
+.call-notification {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: #34495e;
+  padding: 30px;
+  border-radius: 15px;
+  text-align: center;
+  color: white;
+  z-index: 1002;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.call-notification h1 {
+  margin: 0 0 20px 0;
+  font-size: 20px;
+}
+
+.btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 20px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background-color 0.2s;
+}
+
+.btn-answer {
+  background-color: #27ae60;
+  color: white;
+}
+
+.btn-answer:hover {
+  background-color: #2ecc71;
+}
+
+.btn-hangup {
+  background-color: #c0392b;
+  color: white;
+}
+
+.btn-hangup:hover {
+  background-color: #e74c3c;
+}
+
+.call-controls {
+  text-align: center;
+  margin-top: 10px;
+}
+
+.btn-call {
+  background-color: #3498db;
+  color: white;
+  margin-left: 10px;
+  padding: 5px 10px;
+  font-size: 12px;
+}
+
+.btn-call:hover {
+  background-color: #2980b9;
+}

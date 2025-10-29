@@ -1,10 +1,13 @@
 import React, { useContext, useState, useEffect, useRef, useImperativeHandle } from 'react';
 import { Stage, Layer, Line, Circle, Text, Group } from 'react-konva';
 import { SocketContext } from '../contexts/SocketContext';
+import { VideoContext } from '../contexts/VideoContext';
+import VideoPlayer from './VideoPlayer';
 import Chat from './Chat';
 
 const CanvasBoard = React.forwardRef(({ tool, color, width, roomId }, ref) => {
-  const { socket } = useContext(SocketContext);
+    const { socket } = useContext(SocketContext);
+  const { callUser, me } = useContext(VideoContext);
   const [strokes, setStrokes] = useState([]);
   const isDrawing = useRef(false);
   const stageRef = useRef(null);
@@ -279,7 +282,10 @@ const CanvasBoard = React.forwardRef(({ tool, color, width, roomId }, ref) => {
         </div>
       </div>
 
-      {/* Active Users List */}
+            {/* Video Player */}
+      <VideoPlayer />
+
+      {/* Active Users List & Call Buttons */}
       <div style={{
         position: 'absolute',
         top: '80px',
@@ -305,7 +311,10 @@ const CanvasBoard = React.forwardRef(({ tool, color, width, roomId }, ref) => {
                 borderRadius: '50%', 
                 background: user.isDrawing ? '#ec4899' : '#06b6d4' 
               }}></div>
-              <span style={{ fontSize: '13px' }}>{user.name}</span>
+                              <span style={{ fontSize: '13px' }}>{user.name}</span>
+                <button onClick={() => callUser(socketId)} className="btn btn-call">
+                  Call
+                </button>
               {user.isDrawing && <span style={{ fontSize: '11px', color: '#ec4899' }}>drawing</span>}
             </div>
           ))}

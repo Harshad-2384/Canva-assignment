@@ -6,6 +6,7 @@ import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import RoomsPage from './pages/RoomsPage';
+import { VideoProvider } from './contexts/VideoContext';
 import './App.css';
 
 const PrivateRoute = ({ children }) => {
@@ -93,31 +94,33 @@ const Navbar = () => {
 
 function App() {
   return (
-    <Router>
-      <div className="App">
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
-          <Route path="/" element={
-            <>
-              <Navbar />
-              <HomePage />
-            </>
-          } />
-          <Route path="/rooms" element={
-            <PrivateRoute>
-              <Navbar />
-              <RoomsPage />
-            </PrivateRoute>
-          } />
-          <Route path="/canvas/:roomId" element={
-            <PrivateRoute>
-              <CanvasPage />
-            </PrivateRoute>
-          } />
-        </Routes>
-      </div>
-    </Router>
+    <VideoProvider>
+      <Router>
+        <div className="App">
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+            <Route path="/" element={
+              <>
+                <Navbar />
+                <HomePage />
+              </>
+            } />
+            <Route path="/rooms" element={
+              <PrivateRoute>
+                <Navbar />
+                <RoomsPage />
+              </PrivateRoute>
+            } />
+            <Route path="/canvas/:roomId" element={
+              <PrivateRoute>
+                <CanvasPage />
+              </PrivateRoute>
+            } />
+          </Routes>
+        </div>
+      </Router>
+    </VideoProvider>
   );
 }
 
