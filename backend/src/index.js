@@ -179,7 +179,8 @@ io.on('connection', socket => {
     });
   });
 
-  socket.on('send-chat-message', ({ roomId, user, text, timestamp }) => {
+  socket.on('send-chat-message', ({ roomId, text, timestamp }) => {
+    const user = socket.user ? socket.user.name : 'Anonymous';
     console.log(`Received chat message for room ${roomId}: ${user}: ${text}`);
     io.to(roomId).emit('chat-message', { user, text, timestamp });
   });

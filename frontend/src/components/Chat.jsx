@@ -23,7 +23,6 @@ const Chat = ({ roomId }) => {
 
     const msgData = {
       roomId,
-      user: currentUser,
       text: message,
       timestamp: new Date().toISOString()
     };
