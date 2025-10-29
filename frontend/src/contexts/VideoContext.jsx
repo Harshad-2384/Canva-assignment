@@ -39,7 +39,7 @@ const VideoProvider = ({ children }) => {
     return () => {
         socket.off('calluser');
     }
-  }, [socket]);
+  }, [socket, myVideo.current]);
 
   const answerCall = () => {
     setCallAccepted(true);
