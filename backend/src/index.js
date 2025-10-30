@@ -53,8 +53,9 @@ const io = new Server(server, {
   }
 });
 
-// In-memory store for room presence
-const rooms = {};
+// In-memory stores
+const rooms = {}; // For general room presence
+const videoRooms = {}; // For video call users
 
 // Socket.io authentication middleware
 io.use(async (socket, next) => {
@@ -204,6 +205,39 @@ io.on('connection', socket => {
   });
 
   socket.on('disconnect', () => {
+    console.log('user disconnected', socket.id);
+  });
+
+  // Group Video Call Signaling
+  socket.on('join-video-room', () => {
+    const roomID = Object.keys(socket.rooms).find(r => r !== socket.id);
+    if (roomID) {
+      if (videoRooms[roomID]) {
+        const allUsers = videoRooms[roomID];
+        socket.emit('all-users', allUsers);
+        videoRooms[roomID].push(socket.id);
+      } else {
+        videoRooms[roomID] = [socket.id];
+      }
+    }
+  });
+
+  socket.on('sending-signal', (payload) => {
+    io.to(payload.userToSignal).emit('user-joined', { signal: payload.signal, callerID: payload.callerID });
+  });
+
+  socket.on('returning-signal', (payload) => {
+    io.to(payload.callerID).emit('receiving-returned-signal', { signal: payload.signal, id: socket.id });
+  });
+
+  socket.on('disconnect', () => {
+    const roomID = Object.keys(socket.rooms).find(r => r !== socket.id);
+    let room = videoRooms[roomID];
+    if (room) {
+      room = room.filter(id => id !== socket.id);
+      videoRooms[roomID] = room;
+      socket.broadcast.to(roomID).emit('user-left', socket.id);
+    }
     console.log('user disconnected', socket.id);
   });
 });

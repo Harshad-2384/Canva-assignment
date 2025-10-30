@@ -8,106 +8,127 @@ const VideoProvider = ({ children }) => {
   const { socket } = useContext(SocketContext);
 
   const [stream, setStream] = useState(null);
-  const [me, setMe] = useState('');
-  const [call, setCall] = useState({});
-  const [callAccepted, setCallAccepted] = useState(false);
-  const [callEnded, setCallEnded] = useState(false);
-  const [name, setName] = useState('');
-
+  const [peers, setPeers] = useState([]);
   const myVideo = useRef();
-  const userVideo = useRef();
-  const connectionRef = useRef();
+  const peersRef = useRef([]);
 
   useEffect(() => {
     if (!socket) return;
 
-    navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-      .then((currentStream) => {
+    const setupStream = async () => {
+      try {
+        const currentStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         setStream(currentStream);
         if (myVideo.current) {
           myVideo.current.srcObject = currentStream;
         }
-      });
 
-    setMe(socket.id);
-    setName(localStorage.getItem('username') || 'Anonymous');
+        socket.emit('join-video-room');
 
-    socket.on('calluser', ({ from, name: callerName, signal }) => {
-      setCall({ isReceivingCall: true, from, name: callerName, signal });
-    });
+        socket.on('all-users', (users) => {
+          const peers = [];
+          users.forEach(userID => {
+            const peer = createPeer(userID, socket.id, currentStream);
+            peersRef.current.push({ peerID: userID, peer });
+            peers.push({ peerID: userID, peer });
+          });
+          setPeers(peers);
+        });
+
+        socket.on('user-joined', (payload) => {
+          const peer = addPeer(payload.signal, payload.callerID, currentStream);
+          peersRef.current.push({ peerID: payload.callerID, peer });
+          setPeers(users => [...users, { peerID: payload.callerID, peer }]);
+        });
+
+        socket.on('receiving-returned-signal', (payload) => {
+          const item = peersRef.current.find(p => p.peerID === payload.id);
+          item.peer.signal(payload.signal);
+        });
+
+        socket.on('user-left', (id) => {
+          const peerObj = peersRef.current.find(p => p.peerID === id);
+          if(peerObj) {
+            peerObj.peer.destroy();
+          }
+          const newPeers = peersRef.current.filter(p => p.peerID !== id);
+          peersRef.current = newPeers;
+          setPeers(newPeers);
+        });
+
+      } catch (error) {
+        console.error('Error accessing media devices.', error);
+      }
+    };
+
+    setupStream();
 
     return () => {
-        socket.off('calluser');
-    }
-  }, [socket, myVideo.current]);
-
-  const answerCall = () => {
-    setCallAccepted(true);
-
-    const peer = new Peer({ initiator: false, trickle: false, stream });
-
-    peer.on('signal', (data) => {
-      socket.emit('answercall', { signal: data, to: call.from });
-    });
-
-    peer.on('stream', (currentStream) => {
-      if (userVideo.current) {
-        userVideo.current.srcObject = currentStream;
+      socket.off('all-users');
+      socket.off('user-joined');
+      socket.off('receiving-returned-signal');
+      socket.off('user-left');
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
       }
+    };
+  }, [socket]);
+
+  function createPeer(userToSignal, callerID, stream) {
+    const peer = new Peer({
+      initiator: true,
+      trickle: false,
+      stream,
     });
 
-    peer.signal(call.signal);
-
-    connectionRef.current = peer;
-  };
-
-  const callUser = (id) => {
-    const peer = new Peer({ initiator: true, trickle: false, stream });
-
-    peer.on('signal', (data) => {
-      socket.emit('calluser', { userToCall: id, signalData: data, from: me, name });
+    peer.on('signal', (signal) => {
+      socket.emit('sending-signal', { userToSignal, callerID, signal });
     });
 
-    peer.on('stream', (currentStream) => {
-        if (userVideo.current) {
-            userVideo.current.srcObject = currentStream;
-        }
+    return peer;
+  }
+
+  function addPeer(incomingSignal, callerID, stream) {
+    const peer = new Peer({
+      initiator: false,
+      trickle: false,
+      stream,
     });
 
-    socket.on('callaccepted', (signal) => {
-      setCallAccepted(true);
-      peer.signal(signal);
+    peer.on('signal', (signal) => {
+      socket.emit('returning-signal', { signal, callerID });
     });
 
-    connectionRef.current = peer;
-  };
+    peer.signal(incomingSignal);
+    return peer;
+  }
 
-  const leaveCall = () => {
-    setCallEnded(true);
-    if (connectionRef.current) {
-        connectionRef.current.destroy();
+  const toggleVideo = () => {
+    if (stream) {
+      const videoTrack = stream.getVideoTracks()[0];
+      videoTrack.enabled = !videoTrack.enabled;
     }
-    window.location.reload(); // A simple way to reset state
+  };
+
+  const toggleAudio = () => {
+    if (stream) {
+      const audioTrack = stream.getAudioTracks()[0];
+      audioTrack.enabled = !audioTrack.enabled;
+    }
   };
 
   return (
     <VideoContext.Provider value={{
-      call,
-      callAccepted,
       myVideo,
-      userVideo,
       stream,
-      name,
-      setName,
-      callEnded,
-      me,
-      callUser,
-      leaveCall,
-      answerCall,
+      peers,
+      toggleVideo,
+      toggleAudio,
     }}>
       {children}
     </VideoContext.Provider>
   );
 };
+
 
 export { VideoProvider, VideoContext };

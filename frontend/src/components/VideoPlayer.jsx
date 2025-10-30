@@ -1,58 +1,39 @@
-import React, { useContext } from 'react';
+import React, { useContext, useEffect, useRef } from 'react';
 import { VideoContext } from '../contexts/VideoContext';
 import './VideoPlayer.css';
 
+const Video = ({ peer }) => {
+  const ref = useRef();
+
+  useEffect(() => {
+    peer.on('stream', (stream) => {
+      ref.current.srcObject = stream;
+    });
+  }, [peer]);
+
+  return <video playsInline autoPlay ref={ref} />;
+};
+
 const VideoPlayer = () => {
-  const {
-    name,
-    callAccepted,
-    myVideo,
-    userVideo,
-    callEnded,
-    stream,
-    call,
-    answerCall,
-    leaveCall,
-  } = useContext(VideoContext);
+  const { myVideo, stream, peers, toggleVideo, toggleAudio } = useContext(VideoContext);
 
   return (
-    <div className="video-container">
-      {/* My Video */}
-      {stream && (
-        <div className="video-player my-video">
-          <video playsInline muted ref={myVideo} autoPlay />
-          <div className="video-name">{name || 'Me'}</div>
+    <div className="video-grid-container">
+      <div className="video-player">
+        <video muted ref={myVideo} autoPlay playsInline />
+      </div>
+      {peers.map(({ peerID, peer }) => (
+        <div key={peerID} className="video-player">
+          <Video peer={peer} />
         </div>
-      )}
-
-      {/* User's Video */}
-      {callAccepted && !callEnded && (
-        <div className="video-player user-video">
-          <video playsInline ref={userVideo} autoPlay />
-          <div className="video-name">{call.name || 'Guest'}</div>
-        </div>
-      )}
-
-      {/* Call Notification */}
-      {call.isReceivingCall && !callAccepted && (
-        <div className="call-notification">
-          <h1>{call.name} is calling:</h1>
-          <button onClick={answerCall} className="btn btn-answer">
-            Answer
-          </button>
-        </div>
-      )}
-
-      {/* Call Controls */}
-      <div className="call-controls">
-        {callAccepted && !callEnded ? (
-          <button onClick={leaveCall} className="btn btn-hangup">
-            Hang Up
-          </button>
-        ) : null}
+      ))}
+      <div className="media-controls">
+        <button onClick={toggleVideo} className="btn-media">Toggle Video</button>
+        <button onClick={toggleAudio} className="btn-media">Toggle Audio</button>
       </div>
     </div>
   );
 };
+
 
 export default VideoPlayer;
