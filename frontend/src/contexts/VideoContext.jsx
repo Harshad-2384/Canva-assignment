@@ -26,29 +26,31 @@ const VideoProvider = ({ children, roomId }) => {
         socket.emit('join-video-room', roomId);
 
         socket.on('all-users', (users) => {
-          const peers = [];
-          users.forEach(userID => {
+          const peers = users.map(userID => {
             const peer = createPeer(userID, socket.id, currentStream);
-            peersRef.current.push({ peerID: userID, peer });
-            peers.push({ peerID: userID, peer });
+            return { peerID: userID, peer };
           });
+          peersRef.current = peers;
           setPeers(peers);
         });
 
         socket.on('user-joined', (payload) => {
           const peer = addPeer(payload.signal, payload.callerID, currentStream);
-          peersRef.current.push({ peerID: payload.callerID, peer });
-          setPeers(users => [...users, { peerID: payload.callerID, peer }]);
+          const newPeer = { peerID: payload.callerID, peer };
+          peersRef.current.push(newPeer);
+          setPeers(users => [...users, newPeer]);
         });
 
         socket.on('receiving-returned-signal', (payload) => {
           const item = peersRef.current.find(p => p.peerID === payload.id);
-          item.peer.signal(payload.signal);
+          if (item) {
+            item.peer.signal(payload.signal);
+          }
         });
 
         socket.on('user-left', (id) => {
           const peerObj = peersRef.current.find(p => p.peerID === id);
-          if(peerObj) {
+          if (peerObj) {
             peerObj.peer.destroy();
           }
           const newPeers = peersRef.current.filter(p => p.peerID !== id);
@@ -72,7 +74,7 @@ const VideoProvider = ({ children, roomId }) => {
         stream.getTracks().forEach(track => track.stop());
       }
     };
-  }, [socket]);
+  }, [socket, roomId]);
 
   function createPeer(userToSignal, callerID, stream) {
     const peer = new Peer({
