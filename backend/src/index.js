@@ -209,16 +209,14 @@ io.on('connection', socket => {
   });
 
   // Group Video Call Signaling
-  socket.on('join-video-room', () => {
-    const roomID = Object.keys(socket.rooms).find(r => r !== socket.id);
-    if (roomID) {
-      if (videoRooms[roomID]) {
-        const allUsers = videoRooms[roomID];
-        socket.emit('all-users', allUsers);
-        videoRooms[roomID].push(socket.id);
-      } else {
-        videoRooms[roomID] = [socket.id];
-      }
+  socket.on('join-video-room', (roomId) => {
+    if (videoRooms[roomId]) {
+      const allUsers = videoRooms[roomId];
+      socket.emit('all-users', allUsers);
+      videoRooms[roomId].push(socket.id);
+    } else {
+      videoRooms[roomId] = [socket.id];
+      socket.emit('all-users', []);
     }
   });
 
@@ -230,15 +228,24 @@ io.on('connection', socket => {
     io.to(payload.callerID).emit('receiving-returned-signal', { signal: payload.signal, id: socket.id });
   });
 
+  const originalDisconnect = socket.listeners('disconnect')[0];
+  socket.off('disconnect', originalDisconnect);
+
   socket.on('disconnect', () => {
-    const roomID = Object.keys(socket.rooms).find(r => r !== socket.id);
-    let room = videoRooms[roomID];
-    if (room) {
-      room = room.filter(id => id !== socket.id);
-      videoRooms[roomID] = room;
-      socket.broadcast.to(roomID).emit('user-left', socket.id);
+    // Handle video room disconnect
+    for (const roomID in videoRooms) {
+        let room = videoRooms[roomID];
+        if (room.includes(socket.id)) {
+            room = room.filter(id => id !== socket.id);
+            videoRooms[roomID] = room;
+            socket.broadcast.to(roomID).emit('user-left', socket.id);
+            break; 
+        }
     }
-    console.log('user disconnected', socket.id);
+    // Call original canvas disconnect logic
+    if (originalDisconnect) {
+        originalDisconnect();
+    }
   });
 });
 

@@ -4,12 +4,19 @@ import './VideoPlayer.css';
 
 const Video = ({ peer }) => {
   const ref = useRef();
+  const [stream, setStream] = useState();
 
   useEffect(() => {
-    peer.on('stream', (stream) => {
-      ref.current.srcObject = stream;
+    peer.on('stream', (remoteStream) => {
+      setStream(remoteStream);
     });
   }, [peer]);
+
+  useEffect(() => {
+    if (ref.current && stream) {
+      ref.current.srcObject = stream;
+    }
+  }, [stream]);
 
   return <video playsInline autoPlay ref={ref} />;
 };

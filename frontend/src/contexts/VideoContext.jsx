@@ -4,7 +4,7 @@ import { SocketContext } from './SocketContext';
 
 const VideoContext = createContext();
 
-const VideoProvider = ({ children }) => {
+const VideoProvider = ({ children, roomId }) => {
   const { socket } = useContext(SocketContext);
 
   const [stream, setStream] = useState(null);
@@ -23,7 +23,7 @@ const VideoProvider = ({ children }) => {
           myVideo.current.srcObject = currentStream;
         }
 
-        socket.emit('join-video-room');
+        socket.emit('join-video-room', roomId);
 
         socket.on('all-users', (users) => {
           const peers = [];

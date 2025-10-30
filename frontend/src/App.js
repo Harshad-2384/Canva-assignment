@@ -6,13 +6,14 @@ import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import RoomsPage from './pages/RoomsPage';
-import { VideoProvider } from './contexts/VideoContext';
 import './App.css';
 
 const PrivateRoute = ({ children }) => {
   const token = localStorage.getItem('token');
   return token ? children : <Navigate to="/login" />;
 };
+
+import { VideoProvider } from './contexts/VideoContext';
 
 const CanvasPage = () => {
   const { roomId } = useParams();
@@ -35,24 +36,26 @@ const CanvasPage = () => {
   };
 
   return (
-    <div>
-      <Toolbar
-        tool={tool}
-        setTool={setTool}
-        color={color}
-        setColor={setColor}
-        width={width}
-        setWidth={setWidth}
-        saveSnapshot={handleSaveSnapshot}
-      />
-      <CanvasBoard
-        ref={canvasBoardRef}
-        tool={tool}
-        color={color}
-        width={width}
-        roomId={roomId}
-      />
-    </div>
+    <VideoProvider roomId={roomId}>
+      <div>
+        <Toolbar
+          tool={tool}
+          setTool={setTool}
+          color={color}
+          setColor={setColor}
+          width={width}
+          setWidth={setWidth}
+          saveSnapshot={handleSaveSnapshot}
+        />
+        <CanvasBoard
+          ref={canvasBoardRef}
+          tool={tool}
+          color={color}
+          width={width}
+          roomId={roomId}
+        />
+      </div>
+    </VideoProvider>
   );
 };
 
@@ -94,33 +97,31 @@ const Navbar = () => {
 
 function App() {
   return (
-    <VideoProvider>
-      <Router>
-        <div className="App">
-          <Routes>
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
-            <Route path="/" element={
-              <>
-                <Navbar />
-                <HomePage />
-              </>
-            } />
-            <Route path="/rooms" element={
-              <PrivateRoute>
-                <Navbar />
-                <RoomsPage />
-              </PrivateRoute>
-            } />
-            <Route path="/canvas/:roomId" element={
-              <PrivateRoute>
-                <CanvasPage />
-              </PrivateRoute>
-            } />
-          </Routes>
-        </div>
-      </Router>
-    </VideoProvider>
+    <Router>
+      <div className="App">
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/" element={
+            <>
+              <Navbar />
+              <HomePage />
+            </>
+          } />
+          <Route path="/rooms" element={
+            <PrivateRoute>
+              <Navbar />
+              <RoomsPage />
+            </PrivateRoute>
+          } />
+          <Route path="/canvas/:roomId" element={
+            <PrivateRoute>
+              <CanvasPage />
+            </PrivateRoute>
+          } />
+        </Routes>
+      </div>
+    </Router>
   );
 }
 
