@@ -20,6 +20,8 @@ const CanvasPage = () => {
   const [color, setColor] = useState('#000000');
   const [width, setWidth] = useState(5);
   const canvasBoardRef = useRef();
+  const [showVideo, setShowVideo] = useState(false);
+  const [showChat, setShowChat] = useState(false);
   
   console.log('CanvasPage roomId:', roomId);
   
@@ -45,6 +47,10 @@ const CanvasPage = () => {
           width={width}
           setWidth={setWidth}
           saveSnapshot={handleSaveSnapshot}
+          toggleVideo={() => setShowVideo(!showVideo)}
+          toggleChat={() => setShowChat(!showChat)}
+          isVideoVisible={showVideo}
+          isChatVisible={showChat}
         />
         <CanvasBoard
           ref={canvasBoardRef}
@@ -52,6 +58,8 @@ const CanvasPage = () => {
           color={color}
           width={width}
           roomId={roomId}
+          showVideo={showVideo}
+          showChat={showChat}
         />
       </div>
     </VideoProvider>

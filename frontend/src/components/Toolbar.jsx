@@ -1,6 +1,6 @@
 import React from 'react';
 
-const Toolbar = ({ tool, setTool, color, setColor, width, setWidth, saveSnapshot }) => {
+const Toolbar = ({ tool, setTool, color, setColor, width, setWidth, saveSnapshot, toggleVideo, toggleChat, isVideoVisible, isChatVisible }) => {
   const toolbarStyle = {
     padding: '10px',
     display: 'flex',
@@ -40,13 +40,14 @@ const Toolbar = ({ tool, setTool, color, setColor, width, setWidth, saveSnapshot
           type="range"
           min="1"
           max="50"
-          value={width}
           onChange={(e) => setWidth(e.target.value)}
           style={inputStyle}
         />
         <span>{width}</span>
       </div>
-      <button onClick={saveSnapshot}>Save Snapshot</button>
+      <button onClick={saveSnapshot} className="toolbar-button">Save Snapshot</button>
+      <button onClick={toggleVideo} className={`toolbar-button ${isVideoVisible ? 'active' : ''}`}>Video Call</button>
+      <button onClick={toggleChat} className={`toolbar-button ${isChatVisible ? 'active' : ''}`}>Chat</button>
     </div>
   );
 };

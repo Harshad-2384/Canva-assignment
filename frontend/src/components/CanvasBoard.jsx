@@ -5,7 +5,7 @@ import { VideoContext } from '../contexts/VideoContext';
 import VideoPlayer from './VideoPlayer';
 import Chat from './Chat';
 
-const CanvasBoard = React.forwardRef(({ tool, color, width, roomId }, ref) => {
+const CanvasBoard = React.forwardRef(({ tool, color, width, roomId, showVideo, showChat }, ref) => {
     const { socket } = useContext(SocketContext);
   const { callUser, me } = useContext(VideoContext);
   const [strokes, setStrokes] = useState([]);
@@ -283,7 +283,7 @@ const CanvasBoard = React.forwardRef(({ tool, color, width, roomId }, ref) => {
       </div>
 
             {/* Video Player */}
-      <VideoPlayer />
+      {showVideo && <VideoPlayer />}
 
       {/* Active Users List & Call Buttons */}
       <div style={{
@@ -371,14 +371,16 @@ const CanvasBoard = React.forwardRef(({ tool, color, width, roomId }, ref) => {
     </Stage>
       
       {/* Chat Component */}
-      <div style={{
-        position: 'fixed',
-        bottom: '20px',
-        right: '20px',
-        zIndex: 1000
-      }}>
-        <Chat roomId={roomId} />
-      </div>
+      {showChat && (
+        <div style={{
+          position: 'fixed',
+          bottom: '20px',
+          right: '20px',
+          zIndex: 1000
+        }}>
+          <Chat roomId={roomId} />
+        </div>
+      )}
     </div>
   );
 });
