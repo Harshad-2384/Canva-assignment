@@ -228,20 +228,26 @@ io.on('connection', socket => {
     io.to(payload.callerID).emit('receiving-returned-signal', { signal: payload.signal, id: socket.id });
   });
 
+  // This is a workaround to handle multiple disconnect listeners
   const originalDisconnect = socket.listeners('disconnect')[0];
-  socket.off('disconnect', originalDisconnect);
+  if (originalDisconnect) {
+    socket.off('disconnect', originalDisconnect);
+  }
 
   socket.on('disconnect', () => {
     // Handle video room disconnect
+    let videoRoomID = null;
     for (const roomID in videoRooms) {
-        let room = videoRooms[roomID];
-        if (room.includes(socket.id)) {
-            room = room.filter(id => id !== socket.id);
-            videoRooms[roomID] = room;
-            socket.broadcast.to(roomID).emit('user-left', socket.id);
-            break; 
+        if (videoRooms[roomID].includes(socket.id)) {
+            videoRoomID = roomID;
+            videoRooms[roomID] = videoRooms[roomID].filter(id => id !== socket.id);
+            break;
         }
     }
+    if (videoRoomID) {
+        io.to(videoRoomID).emit('user-left', socket.id);
+    }
+
     // Call original canvas disconnect logic
     if (originalDisconnect) {
         originalDisconnect();
