@@ -22,10 +22,7 @@ const CanvasPage = () => {
   const [isChatVisible, setChatVisible] = useState(true);
   const [isVideoVisible, setVideoVisible] = useState(true);
   const canvasBoardRef = useRef();
-  
-  console.log('CanvasPage roomId:', roomId);
-  
-  // If no roomId from URL params, redirect to rooms page
+
   if (!roomId) {
     return <Navigate to="/rooms" />;
   }
@@ -63,6 +60,8 @@ const CanvasPage = () => {
     </VideoProvider>
   );
 };
+
+const Navbar = () => {
   const token = localStorage.getItem('token');
   const userName = localStorage.getItem('userName');
 
