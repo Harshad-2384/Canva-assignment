@@ -1,11 +1,11 @@
 import React, { useContext, useState, useEffect, useRef, useImperativeHandle } from 'react';
-import { Stage, Layer, Line, Circle, Text, Group, Rect, Ellipse } from 'react-konva';
+import { Stage, Layer, Line, Circle, Text, Group } from 'react-konva';
 import { SocketContext } from '../contexts/SocketContext';
 import { VideoContext } from '../contexts/VideoContext';
 import VideoPlayer from './VideoPlayer';
 import Chat from './Chat';
 
-const CanvasBoard = React.forwardRef(({ tool, color, width, roomId, isChatVisible, isVideoVisible }, ref) => {
+const CanvasBoard = React.forwardRef(({ tool, color, width, roomId }, ref) => {
     const { socket } = useContext(SocketContext);
   const { callUser, me } = useContext(VideoContext);
   const [strokes, setStrokes] = useState([]);
@@ -13,119 +13,177 @@ const CanvasBoard = React.forwardRef(({ tool, color, width, roomId, isChatVisibl
   const stageRef = useRef(null);
   const [showCopied, setShowCopied] = useState(false);
   const [remoteUsers, setRemoteUsers] = useState({}); // { socketId: { name, x, y, isDrawing } }
-    useEffect(() => {
-    if (!socket || !roomId) return;
-
-    const joinRoom = () => socket.emit('join-room', { roomId });
-
-    if (socket.connected) {
-      joinRoom();
-    } else {
-      socket.on('connect', joinRoom);
+  useEffect(() => {
+    console.log('CanvasBoard useEffect - socket:', !!socket, 'roomId:', roomId, 'socket.connected:', socket?.connected);
+    
+    if (!socket || !roomId) {
+      console.log('Missing socket or roomId, not joining room');
+      return;
     }
 
-    socket.on('load-canvas', ({ strokes: initialStrokes }) => setStrokes(initialStrokes || []));
+    const joinRoom = () => {
+      console.log('Attempting to join room:', roomId);
+      console.log('Socket state - connected:', socket.connected, 'id:', socket.id);
+      socket.emit('join-room', { roomId });
+      console.log('join-room event emitted');
+    };
 
+    // Force connection and join room
+    if (!socket.connected) {
+      console.log('Socket not connected, forcing connection...');
+      socket.connect();
+    }
+    
+    // Set up connect listener
+    socket.on('connect', () => {
+      console.log('Socket connected! ID:', socket.id);
+      joinRoom();
+    });
+    
+    // Try to join immediately if already connected
+    if (socket.connected) {
+      console.log('Socket already connected, joining room immediately');
+      joinRoom();
+    }
+
+    // Listen for initial canvas state
+    socket.on('load-canvas', ({ strokes: initialStrokes }) => {
+      if (initialStrokes) {
+        setStrokes(initialStrokes);
+      }
+    });
+
+    // Listen for initial presence list
     socket.on('presence', ({ users }) => {
+      console.log('Received presence:', users);
       const usersMap = {};
       users.forEach(user => {
         if (user.socketId !== socket.id) {
-          usersMap[user.socketId] = { name: user.name, x: user.x || 0, y: user.y || 0, isDrawing: false };
+          usersMap[user.socketId] = { 
+            name: user.name, 
+            x: user.x || 0, 
+            y: user.y || 0,
+            isDrawing: false
+          };
         }
       });
       setRemoteUsers(usersMap);
     });
 
-    socket.on('remote-stroke', (stroke) => setStrokes(prev => [...prev, stroke]));
 
-    socket.on('shape-moved', ({ index, x, y }) => {
-      setStrokes(prev => {
-        const newStrokes = [...prev];
-        newStrokes[index] = { ...newStrokes[index], x, y };
-        return newStrokes;
-      });
+    // Remote cursor movement
+    socket.on('remote-cursor', ({ socketId, x, y, user }) => {
+      console.log('Remote cursor:', socketId, x, y, user?.name);
+      setRemoteUsers(prev => ({
+        ...prev,
+        [socketId]: { 
+          ...prev[socketId],
+          name: user?.name || prev[socketId]?.name || 'User',
+          x, 
+          y
+        }
+      }));
     });
 
+    // Remote user started drawing
+    socket.on('user-started-drawing', ({ socketId }) => {
+      setRemoteUsers(prev => ({
+        ...prev,
+        [socketId]: { ...prev[socketId], isDrawing: true }
+      }));
+    });
+
+    // Remote user stopped drawing
+    socket.on('user-stopped-drawing', ({ socketId }) => {
+      setRemoteUsers(prev => ({
+        ...prev,
+        [socketId]: { ...prev[socketId], isDrawing: false }
+      }));
+    });
+
+    // Listen for strokes from other users
+    socket.on('remote-stroke', (stroke) => {
+      console.log('Received remote stroke');
+      // Only add remote strokes if we're not currently drawing
+      if (!isDrawing.current) {
+        setStrokes(prevStrokes => [...prevStrokes, stroke]);
+      } else {
+        // If we're drawing, queue the stroke to be added later
+        setTimeout(() => {
+          setStrokes(prevStrokes => [...prevStrokes, stroke]);
+        }, 100);
+      }
+    });
+
+    // Cleanup listeners on unmount
     return () => {
-      socket.off('connect', joinRoom);
+      socket.off('connect');
       socket.off('load-canvas');
       socket.off('presence');
+      socket.off('remote-cursor');
+      socket.off('user-started-drawing');
+      socket.off('user-stopped-drawing');
       socket.off('remote-stroke');
-      socket.off('shape-moved');
     };
   }, [socket, roomId]);
 
-    const handleMouseDown = (e) => {
+  const handleMouseDown = (e) => {
     isDrawing.current = true;
     const pos = e.target.getStage().getPointerPosition();
-    let newElement;
-
-    if (tool === 'brush' || tool === 'eraser') {
-      newElement = {
-        tool,
-        color: tool === 'eraser' ? '#ffffff' : color,
-        width,
-        points: [pos.x, pos.y],
-      };
-    } else {
-      newElement = {
-        tool,
-        color,
-        width,
-        x: pos.x,
-        y: pos.y,
-        width: 0,
-        height: 0,
-      };
-    }
-
-    setStrokes([...strokes, newElement]);
+    const newStroke = {
+      // The backend will associate this with the authenticated user
+      tool,
+      color: tool === 'eraser' ? '#ffffff' : color,
+      width,
+      points: [pos.x, pos.y],
+    };
+    setStrokes([...strokes, newStroke]);
+    
+    // Emit start-draw event
     socket.emit('start-draw', { roomId });
   };
 
-    const handleMouseMove = (e) => {
+  const handleMouseMove = (e) => {
     const stage = e.target.getStage();
     const point = stage.getPointerPosition();
-
+    
+    // Emit cursor position (throttled by socket.io naturally)
     if (socket && point) {
       socket.emit('cursor-move', { roomId, x: point.x, y: point.y });
+      // Debug log every 100th movement
+      if (Math.random() < 0.01) {
+        console.log('Emitting cursor:', point.x, point.y);
+      }
     }
 
     if (!isDrawing.current) return;
 
+    // Use functional update to avoid stale closure issues
     setStrokes(prevStrokes => {
       const newStrokes = [...prevStrokes];
-      const lastElement = newStrokes[newStrokes.length - 1];
-
-      if (lastElement.tool === 'brush' || lastElement.tool === 'eraser') {
-        lastElement.points = lastElement.points.concat([point.x, point.y]);
-      } else {
-        lastElement.width = point.x - lastElement.x;
-        lastElement.height = point.y - lastElement.y;
+      const lastStroke = newStrokes[newStrokes.length - 1];
+      if (lastStroke) {
+        lastStroke.points = lastStroke.points.concat([point.x, point.y]);
       }
       return newStrokes;
     });
   };
 
-    const handleMouseUp = () => {
-    if (tool === 'select') {
-      isDrawing.current = false;
-      return;
-    }
-
+  const handleMouseUp = () => {
     if (!isDrawing.current) return;
     isDrawing.current = false;
-
-    const lastStroke = strokes[strokes.length - 1];
-    if (lastStroke) {
-      socket.emit('draw-stroke', { roomId, stroke: lastStroke });
-    }
+    
+    // Get the current stroke and emit it
+    setStrokes(prevStrokes => {
+      const lastStroke = prevStrokes[prevStrokes.length - 1];
+      if (lastStroke && lastStroke.points.length > 2) {
+        socket.emit('draw-stroke', { roomId, stroke: lastStroke });
+      }
+      return prevStrokes; // Return unchanged since we're just emitting
+    });
+    
+    // Emit stop-draw event
     socket.emit('stop-draw', { roomId });
-  };
-
-  const handleDragEnd = (e, index) => {
-    const { x, y } = e.target.position();
-    socket.emit('move-shape', { roomId, index, x, y });
   };
 
   const handleSaveSnapshot = () => {
@@ -224,8 +282,7 @@ const CanvasBoard = React.forwardRef(({ tool, color, width, roomId, isChatVisibl
         </div>
       </div>
 
-                  {/* Video Player */}
-      {isVideoVisible && <VideoPlayer />}
+            {/* Video Player */}
       <VideoPlayer />
 
       {/* Active Users List & Call Buttons */}
@@ -255,7 +312,10 @@ const CanvasBoard = React.forwardRef(({ tool, color, width, roomId, isChatVisibl
                 background: user.isDrawing ? '#ec4899' : '#06b6d4' 
               }}></div>
                               <span style={{ fontSize: '13px' }}>{user.name}</span>
-                              {user.isDrawing && <span style={{ fontSize: '11px', color: '#ec4899' }}>drawing</span>}
+                <button onClick={() => callUser(socketId)} className="btn btn-call">
+                  Call
+                </button>
+              {user.isDrawing && <span style={{ fontSize: '11px', color: '#ec4899' }}>drawing</span>}
             </div>
           ))}
         </div>
@@ -271,51 +331,20 @@ const CanvasBoard = React.forwardRef(({ tool, color, width, roomId, isChatVisibl
       ref={stageRef}
       style={{ backgroundColor: '#ffffff' }}
     >
-            <Layer>
-        {strokes.map((stroke, i) => {
-          if (stroke.tool === 'brush' || stroke.tool === 'eraser') {
-            return (
-              <Line
-                key={i}
-                points={stroke.points}
-                stroke={stroke.color}
-                strokeWidth={stroke.width}
-                tension={0.5}
-                lineCap="round"
-                globalCompositeOperation={stroke.tool === 'eraser' ? 'destination-out' : 'source-over'}
-              />
-            );
-          } else if (stroke.tool === 'rectangle') {
-            return (
-                            <Rect
-                key={i}
-                x={stroke.x}
-                y={stroke.y}
-                width={stroke.width}
-                height={stroke.height}
-                stroke={stroke.color}
-                strokeWidth={stroke.width}
-                draggable={tool === 'select'}
-                onDragEnd={(e) => handleDragEnd(e, i)}
-              />
-            );
-          } else if (stroke.tool === 'circle') {
-            return (
-                            <Ellipse
-                key={i}
-                x={stroke.x + stroke.width / 2}
-                y={stroke.y + stroke.height / 2}
-                radiusX={Math.abs(stroke.width / 2)}
-                radiusY={Math.abs(stroke.height / 2)}
-                stroke={stroke.color}
-                strokeWidth={stroke.width}
-                draggable={tool === 'select'}
-                onDragEnd={(e) => handleDragEnd(e, i)}
-              />
-            );
-          }
-          return null;
-        })}
+      <Layer>
+        {strokes.map((stroke, i) => (
+          <Line
+            key={i}
+            points={stroke.points}
+            stroke={stroke.color}
+            strokeWidth={stroke.width}
+            tension={0.5}
+            lineCap="round"
+            globalCompositeOperation={
+              stroke.tool === 'eraser' ? 'destination-out' : 'source-over'
+            }
+          />
+        ))}
         
         {/* Remote users' cursors */}
         {Object.entries(remoteUsers).map(([socketId, user]) => (
@@ -341,17 +370,15 @@ const CanvasBoard = React.forwardRef(({ tool, color, width, roomId, isChatVisibl
       </Layer>
     </Stage>
       
-            {/* Chat Component */}
-            {isChatVisible && (
-        <div style={{
-          position: 'fixed',
-          bottom: '20px',
-          right: '20px',
-          zIndex: 1000
-        }}>
-          <Chat roomId={roomId} />
-        </div>
-      )}
+      {/* Chat Component */}
+      <div style={{
+        position: 'fixed',
+        bottom: '20px',
+        right: '20px',
+        zIndex: 1000
+      }}>
+        <Chat roomId={roomId} />
+      </div>
     </div>
   );
 });

@@ -19,27 +19,6 @@
   padding: 12px 16px;
   font-weight: 600;
   border-bottom: 1px solid #34495e;
-  cursor: pointer;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.minimize-btn {
-  background: none;
-  border: none;
-  color: white;
-  font-size: 20px;
-  cursor: pointer;
-}
-
-.chat-container.minimized .messages-container,
-.chat-container.minimized .chat-input-container {
-  display: none;
-}
-
-.chat-container.minimized {
-  height: auto;
 }
 
 .messages-container {
@@ -61,18 +40,6 @@
   margin-bottom: 12px;
   line-height: 1.4;
   word-break: break-word;
-}
-
-.message-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 4px;
-}
-
-.message-timestamp {
-  font-size: 10px;
-  color: #95a5a6;
 }
 
 .message-user {

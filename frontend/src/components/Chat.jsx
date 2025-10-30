@@ -6,7 +6,6 @@ const Chat = ({ roomId }) => {
   const [message, setMessage] = useState('');
   const { chat } = useContext(SocketContext);
   const messagesEndRef = useRef(null);
-  const [isMinimized, setMinimized] = useState(false);
   const currentUser = localStorage.getItem('username') || 'Anonymous';
 
   // Auto-scroll to bottom when messages change
@@ -32,22 +31,18 @@ const Chat = ({ roomId }) => {
     setMessage('');
   };
 
-    return (
-    <div className={`chat-container ${isMinimized ? 'minimized' : ''}`}>
-            <div className="chat-header" onClick={() => setMinimized(!isMinimized)}>
+  return (
+    <div className="chat-container">
+      <div className="chat-header">
         <h3>Chat</h3>
-        <button className="minimize-btn">{isMinimized ? '+' : '-'}</button>
       </div>
       <div className="messages-container">
         {chat.messages.length === 0 ? (
           <div className="no-messages">No messages yet. Say hi! 👋</div>
         ) : (
           chat.messages.map((msg, index) => (
-                        <div key={index} className="message">
-              <div className="message-header">
-                <span className="message-user">{msg.user}</span>
-                <span className="message-timestamp">{new Date(msg.timestamp).toLocaleTimeString()}</span>
-              </div>
+            <div key={index} className="message">
+              <span className="message-user">{msg.user}: </span>
               <span className="message-text">{msg.text}</span>
             </div>
           ))

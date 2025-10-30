@@ -22,7 +22,7 @@ const Video = ({ peer }) => {
 };
 
 const VideoPlayer = () => {
-  const { myVideo, stream, peers, toggleVideo, toggleAudio, leaveCall } = useContext(VideoContext);
+  const { myVideo, stream, peers, toggleVideo, toggleAudio } = useContext(VideoContext);
 
   return (
     <div className="video-grid-container">
@@ -35,9 +35,8 @@ const VideoPlayer = () => {
         </div>
       ))}
       <div className="media-controls">
-        <button onClick={toggleVideo} className="btn-media">Camera</button>
-        <button onClick={toggleAudio} className="btn-media">Mute</button>
-        <button onClick={leaveCall} className="btn-media hang-up">Hang Up</button>
+        <button onClick={toggleVideo} className="btn-media">Toggle Video</button>
+        <button onClick={toggleAudio} className="btn-media">Toggle Audio</button>
       </div>
     </div>
   );

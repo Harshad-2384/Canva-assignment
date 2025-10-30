@@ -225,11 +225,7 @@ io.on('connection', socket => {
   });
 
   socket.on('returning-signal', (payload) => {
-        io.to(payload.callerID).emit('receiving-returned-signal', { signal: payload.signal, id: socket.id });
-  });
-
-  socket.on('move-shape', ({ roomId, index, x, y }) => {
-    socket.to(roomId).emit('shape-moved', { index, x, y });
+    io.to(payload.callerID).emit('receiving-returned-signal', { signal: payload.signal, id: socket.id });
   });
 
   const originalDisconnect = socket.listeners('disconnect')[0];
