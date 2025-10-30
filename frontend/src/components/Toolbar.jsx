@@ -1,6 +1,6 @@
 import React from 'react';
 
-const Toolbar = ({ tool, setTool, color, setColor, width, setWidth, saveSnapshot }) => {
+const Toolbar = ({ tool, setTool, color, setColor, width, setWidth, saveSnapshot, toggleChat, toggleVideo }) => {
   const toolbarStyle = {
     padding: '10px',
     display: 'flex',
@@ -26,8 +26,11 @@ const Toolbar = ({ tool, setTool, color, setColor, width, setWidth, saveSnapshot
       <div style={labelStyle}>
         Tool
         <select value={tool} onChange={(e) => setTool(e.target.value)} style={inputStyle}>
-          <option value="brush">Brush</option>
+                    <option value="brush">Brush</option>
           <option value="eraser">Eraser</option>
+          <option value="rectangle">Rectangle</option>
+                    <option value="circle">Circle</option>
+          <option value="select">Select</option>
         </select>
       </div>
       <div style={labelStyle}>
@@ -40,13 +43,14 @@ const Toolbar = ({ tool, setTool, color, setColor, width, setWidth, saveSnapshot
           type="range"
           min="1"
           max="50"
-          value={width}
           onChange={(e) => setWidth(e.target.value)}
           style={inputStyle}
         />
         <span>{width}</span>
       </div>
-      <button onClick={saveSnapshot}>Save Snapshot</button>
+      <button onClick={saveSnapshot} className="toolbar-button">Save Snapshot</button>
+      <button onClick={toggleChat} className="toolbar-button">Chat</button>
+      <button onClick={toggleVideo} className="toolbar-button">Video Call</button>
     </div>
   );
 };

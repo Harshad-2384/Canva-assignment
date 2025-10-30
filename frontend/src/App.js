@@ -19,6 +19,8 @@ const CanvasPage = () => {
   const [tool, setTool] = useState('brush');
   const [color, setColor] = useState('#000000');
   const [width, setWidth] = useState(5);
+  const [isChatVisible, setChatVisible] = useState(true);
+  const [isVideoVisible, setVideoVisible] = useState(true);
   const canvasBoardRef = useRef();
   
   console.log('CanvasPage roomId:', roomId);
@@ -45,6 +47,8 @@ const CanvasPage = () => {
           width={width}
           setWidth={setWidth}
           saveSnapshot={handleSaveSnapshot}
+          toggleChat={() => setChatVisible(!isChatVisible)}
+          toggleVideo={() => setVideoVisible(!isVideoVisible)}
         />
         <CanvasBoard
           ref={canvasBoardRef}
@@ -52,13 +56,13 @@ const CanvasPage = () => {
           color={color}
           width={width}
           roomId={roomId}
+          isChatVisible={isChatVisible}
+          isVideoVisible={isVideoVisible}
         />
       </div>
     </VideoProvider>
   );
 };
-
-const Navbar = () => {
   const token = localStorage.getItem('token');
   const userName = localStorage.getItem('userName');
 
