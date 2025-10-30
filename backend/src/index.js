@@ -211,7 +211,7 @@ io.on('connection', socket => {
   // Group Video Call Signaling
   socket.on('join-video-room', (roomId) => {
     if (videoRooms[roomId]) {
-      const allUsers = videoRooms[roomId];
+      const allUsers = videoRooms[roomId].filter(id => id !== socket.id);
       socket.emit('all-users', allUsers);
       videoRooms[roomId].push(socket.id);
     } else {
