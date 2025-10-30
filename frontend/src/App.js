@@ -6,14 +6,13 @@ import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import RoomsPage from './pages/RoomsPage';
+import { VideoProvider } from './contexts/VideoContext';
 import './App.css';
 
 const PrivateRoute = ({ children }) => {
   const token = localStorage.getItem('token');
   return token ? children : <Navigate to="/login" />;
 };
-
-import { VideoProvider } from './contexts/VideoContext';
 
 const CanvasPage = () => {
   const { roomId } = useParams();
