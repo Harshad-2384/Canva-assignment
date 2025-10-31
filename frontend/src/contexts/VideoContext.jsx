@@ -85,11 +85,17 @@ const VideoProvider = ({ children, roomId }) => {
   }, [socket, roomId]);
 
   function createPeer(userToSignal, callerID, stream) {
-    console.log('📹 Creating peer connection to:', userToSignal);
+    console.log('📹 Creating peer connection to:', userToSignal, 'with stream:', !!stream);
     const peer = new Peer({
       initiator: true,
       trickle: false,
       stream,
+      config: {
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:global.stun.twilio.com:3478' }
+        ]
+      }
     });
 
     peer.on('signal', (signal) => {
@@ -113,11 +119,17 @@ const VideoProvider = ({ children, roomId }) => {
   }
 
   function addPeer(incomingSignal, callerID, stream) {
-    console.log('📹 Adding peer for caller:', callerID);
+    console.log('📹 Adding peer for caller:', callerID, 'with stream:', !!stream);
     const peer = new Peer({
       initiator: false,
       trickle: false,
       stream,
+      config: {
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:global.stun.twilio.com:3478' }
+        ]
+      }
     });
 
     peer.on('signal', (signal) => {

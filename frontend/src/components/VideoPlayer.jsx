@@ -67,6 +67,15 @@ const VideoPlayer = () => {
   }, [stream, myVideo]);
 
   console.log('📹 VideoPlayer render - peers count:', peers.length, 'stream:', !!stream);
+  
+  // Debug: Log stream details
+  if (stream) {
+    console.log('📹 Local stream tracks:', stream.getTracks().map(track => ({
+      kind: track.kind,
+      enabled: track.enabled,
+      readyState: track.readyState
+    })));
+  }
 
   return (
     <div className="video-grid-container">
