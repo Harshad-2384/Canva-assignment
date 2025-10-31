@@ -284,7 +284,15 @@ io.on('connection', socket => {
 
   socket.on('sending-signal', (payload) => {
     console.log('📹 Relaying signal from', payload.callerID, 'to', payload.userToSignal);
-    io.to(payload.userToSignal).emit('user-joined', { signal: payload.signal, callerID: payload.callerID });
+    // Find user name from rooms data
+    const callerInfo = Object.values(rooms).find(room => room[payload.callerID]);
+    const callerName = callerInfo ? callerInfo[payload.callerID]?.name : null;
+    
+    io.to(payload.userToSignal).emit('user-joined', { 
+      signal: payload.signal, 
+      callerID: payload.callerID,
+      userName: callerName 
+    });
   });
 
   socket.on('returning-signal', (payload) => {
