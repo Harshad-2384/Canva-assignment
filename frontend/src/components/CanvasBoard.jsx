@@ -1,14 +1,20 @@
 import React, { useContext, useState, useEffect, useRef, useImperativeHandle } from 'react';
-import { Stage, Layer, Line, Circle, Text, Group } from 'react-konva';
+import { Stage, Layer, Line, Circle, Text, Group, Rect, Arrow, RegularPolygon, Star } from 'react-konva';
 import { SocketContext } from '../contexts/SocketContext';
 import { VideoContext } from '../contexts/VideoContext';
 import VideoPlayer from './VideoPlayer';
 import Chat from './Chat';
 
-const CanvasBoard = React.forwardRef(({ tool, color, width, roomId, showVideo, showChat }, ref) => {
+const CanvasBoard = React.forwardRef(({ tool, color, width, fillColor, fontSize, roomId, showVideo, showChat }, ref) => {
     const { socket } = useContext(SocketContext);
   const { callUser, me } = useContext(VideoContext);
   const [strokes, setStrokes] = useState([]);
+  const [shapes, setShapes] = useState([]);
+  const [currentShape, setCurrentShape] = useState(null);
+  const [startPos, setStartPos] = useState(null);
+  const [textInput, setTextInput] = useState('');
+  const [showTextInput, setShowTextInput] = useState(false);
+  const [textPosition, setTextPosition] = useState({ x: 0, y: 0 });
   const isDrawing = useRef(false);
   const stageRef = useRef(null);
   const [showCopied, setShowCopied] = useState(false);
@@ -47,9 +53,12 @@ const CanvasBoard = React.forwardRef(({ tool, color, width, roomId, showVideo, s
     }
 
     // Listen for initial canvas state
-    socket.on('load-canvas', ({ strokes: initialStrokes }) => {
+    socket.on('load-canvas', ({ strokes: initialStrokes, shapes: initialShapes }) => {
       if (initialStrokes) {
         setStrokes(initialStrokes);
+      }
+      if (initialShapes) {
+        setShapes(initialShapes);
       }
     });
 
@@ -115,6 +124,12 @@ const CanvasBoard = React.forwardRef(({ tool, color, width, roomId, showVideo, s
       }
     });
 
+    // Listen for shapes from other users
+    socket.on('remote-shape', (shape) => {
+      console.log('Received remote shape');
+      setShapes(prevShapes => [...prevShapes, shape]);
+    });
+
     // Cleanup listeners on unmount
     return () => {
       socket.off('connect');
@@ -124,20 +139,49 @@ const CanvasBoard = React.forwardRef(({ tool, color, width, roomId, showVideo, s
       socket.off('user-started-drawing');
       socket.off('user-stopped-drawing');
       socket.off('remote-stroke');
+      socket.off('remote-shape');
     };
   }, [socket, roomId]);
 
   const handleMouseDown = (e) => {
-    isDrawing.current = true;
     const pos = e.target.getStage().getPointerPosition();
-    const newStroke = {
-      // The backend will associate this with the authenticated user
-      tool,
-      color: tool === 'eraser' ? '#ffffff' : color,
-      width,
-      points: [pos.x, pos.y],
-    };
-    setStrokes([...strokes, newStroke]);
+    
+    if (tool === 'text') {
+      // Handle text tool
+      setTextPosition({ x: pos.x, y: pos.y });
+      setShowTextInput(true);
+      return;
+    }
+    
+    isDrawing.current = true;
+    setStartPos(pos);
+    
+    if (['brush', 'eraser'].includes(tool)) {
+      // Handle brush and eraser (existing functionality)
+      const newStroke = {
+        tool,
+        color: tool === 'eraser' ? '#ffffff' : color,
+        width,
+        points: [pos.x, pos.y],
+      };
+      setStrokes([...strokes, newStroke]);
+    } else {
+      // Handle shapes
+      const newShape = {
+        id: Date.now() + Math.random(),
+        tool,
+        color,
+        fillColor: fillColor !== 'transparent' ? fillColor : null,
+        strokeWidth: width,
+        x: pos.x,
+        y: pos.y,
+        width: 0,
+        height: 0,
+        endX: pos.x,
+        endY: pos.y,
+      };
+      setCurrentShape(newShape);
+    }
     
     // Emit start-draw event
     socket.emit('start-draw', { roomId });
@@ -158,32 +202,74 @@ const CanvasBoard = React.forwardRef(({ tool, color, width, roomId, showVideo, s
 
     if (!isDrawing.current) return;
 
-    // Use functional update to avoid stale closure issues
-    setStrokes(prevStrokes => {
-      const newStrokes = [...prevStrokes];
-      const lastStroke = newStrokes[newStrokes.length - 1];
-      if (lastStroke) {
-        lastStroke.points = lastStroke.points.concat([point.x, point.y]);
-      }
-      return newStrokes;
-    });
+    if (['brush', 'eraser'].includes(tool)) {
+      // Handle brush and eraser movement
+      setStrokes(prevStrokes => {
+        const newStrokes = [...prevStrokes];
+        const lastStroke = newStrokes[newStrokes.length - 1];
+        if (lastStroke) {
+          lastStroke.points = lastStroke.points.concat([point.x, point.y]);
+        }
+        return newStrokes;
+      });
+    } else if (currentShape && startPos) {
+      // Handle shape drawing
+      const updatedShape = { ...currentShape };
+      updatedShape.endX = point.x;
+      updatedShape.endY = point.y;
+      updatedShape.width = Math.abs(point.x - startPos.x);
+      updatedShape.height = Math.abs(point.y - startPos.y);
+      updatedShape.x = Math.min(startPos.x, point.x);
+      updatedShape.y = Math.min(startPos.y, point.y);
+      
+      setCurrentShape(updatedShape);
+    }
   };
 
   const handleMouseUp = () => {
     if (!isDrawing.current) return;
     isDrawing.current = false;
     
-    // Get the current stroke and emit it
-    setStrokes(prevStrokes => {
-      const lastStroke = prevStrokes[prevStrokes.length - 1];
-      if (lastStroke && lastStroke.points.length > 2) {
-        socket.emit('draw-stroke', { roomId, stroke: lastStroke });
+    if (['brush', 'eraser'].includes(tool)) {
+      // Handle stroke completion
+      setStrokes(prevStrokes => {
+        const lastStroke = prevStrokes[prevStrokes.length - 1];
+        if (lastStroke && lastStroke.points.length > 2) {
+          socket.emit('draw-stroke', { roomId, stroke: lastStroke });
+        }
+        return prevStrokes;
+      });
+    } else if (currentShape) {
+      // Handle shape completion
+      if (currentShape.width > 5 || currentShape.height > 5) {
+        setShapes(prevShapes => [...prevShapes, currentShape]);
+        socket.emit('draw-shape', { roomId, shape: currentShape });
       }
-      return prevStrokes; // Return unchanged since we're just emitting
-    });
+      setCurrentShape(null);
+    }
     
+    setStartPos(null);
     // Emit stop-draw event
     socket.emit('stop-draw', { roomId });
+  };
+
+  const handleTextSubmit = () => {
+    if (textInput.trim()) {
+      const textShape = {
+        id: Date.now() + Math.random(),
+        tool: 'text',
+        text: textInput,
+        x: textPosition.x,
+        y: textPosition.y,
+        fontSize: fontSize || 16,
+        color,
+        strokeWidth: width,
+      };
+      setShapes(prevShapes => [...prevShapes, textShape]);
+      socket.emit('draw-shape', { roomId, shape: textShape });
+    }
+    setTextInput('');
+    setShowTextInput(false);
   };
 
   const handleSaveSnapshot = () => {
@@ -213,6 +299,105 @@ const CanvasBoard = React.forwardRef(({ tool, color, width, roomId, showVideo, s
   };
 
   const activeUsersCount = Object.keys(remoteUsers).length + 1; // +1 for current user
+
+  // Function to render shapes
+  const renderShape = (shape, index) => {
+    const key = shape.id || index;
+    
+    switch (shape.tool) {
+      case 'rectangle':
+        return (
+          <Rect
+            key={key}
+            x={shape.x}
+            y={shape.y}
+            width={shape.width}
+            height={shape.height}
+            stroke={shape.color}
+            strokeWidth={shape.strokeWidth || 2}
+            fill={shape.fillColor || 'transparent'}
+          />
+        );
+      case 'circle':
+        return (
+          <Circle
+            key={key}
+            x={shape.x + shape.width / 2}
+            y={shape.y + shape.height / 2}
+            radius={Math.min(shape.width, shape.height) / 2}
+            stroke={shape.color}
+            strokeWidth={shape.strokeWidth || 2}
+            fill={shape.fillColor || 'transparent'}
+          />
+        );
+      case 'line':
+        return (
+          <Line
+            key={key}
+            points={[shape.x, shape.y, shape.endX, shape.endY]}
+            stroke={shape.color}
+            strokeWidth={shape.strokeWidth || 2}
+            lineCap="round"
+          />
+        );
+      case 'arrow':
+        return (
+          <Arrow
+            key={key}
+            points={[shape.x, shape.y, shape.endX, shape.endY]}
+            stroke={shape.color}
+            strokeWidth={shape.strokeWidth || 2}
+            fill={shape.color}
+            pointerLength={10}
+            pointerWidth={8}
+          />
+        );
+      case 'triangle':
+        const centerX = shape.x + shape.width / 2;
+        const topY = shape.y;
+        const bottomY = shape.y + shape.height;
+        return (
+          <RegularPolygon
+            key={key}
+            x={centerX}
+            y={shape.y + shape.height / 2}
+            sides={3}
+            radius={Math.min(shape.width, shape.height) / 2}
+            stroke={shape.color}
+            strokeWidth={shape.strokeWidth || 2}
+            fill={shape.fillColor || 'transparent'}
+          />
+        );
+      case 'star':
+        return (
+          <Star
+            key={key}
+            x={shape.x + shape.width / 2}
+            y={shape.y + shape.height / 2}
+            numPoints={5}
+            innerRadius={Math.min(shape.width, shape.height) / 4}
+            outerRadius={Math.min(shape.width, shape.height) / 2}
+            stroke={shape.color}
+            strokeWidth={shape.strokeWidth || 2}
+            fill={shape.fillColor || 'transparent'}
+          />
+        );
+      case 'text':
+        return (
+          <Text
+            key={key}
+            x={shape.x}
+            y={shape.y}
+            text={shape.text}
+            fontSize={shape.fontSize || 16}
+            fill={shape.color}
+            fontFamily="Arial"
+          />
+        );
+      default:
+        return null;
+    }
+  };
 
   // Debug: Log remote users whenever they change
   useEffect(() => {
@@ -332,6 +517,7 @@ const CanvasBoard = React.forwardRef(({ tool, color, width, roomId, showVideo, s
       style={{ backgroundColor: '#ffffff' }}
     >
       <Layer>
+        {/* Render strokes (brush and eraser) */}
         {strokes.map((stroke, i) => (
           <Line
             key={i}
@@ -345,6 +531,12 @@ const CanvasBoard = React.forwardRef(({ tool, color, width, roomId, showVideo, s
             }
           />
         ))}
+        
+        {/* Render completed shapes */}
+        {shapes.map((shape, i) => renderShape(shape, i))}
+        
+        {/* Render current shape being drawn */}
+        {currentShape && renderShape(currentShape, 'current')}
         
         {/* Remote users' cursors */}
         {Object.entries(remoteUsers).map(([socketId, user]) => (
@@ -370,6 +562,67 @@ const CanvasBoard = React.forwardRef(({ tool, color, width, roomId, showVideo, s
       </Layer>
     </Stage>
       
+      {/* Text Input Modal */}
+      {showTextInput && (
+        <div style={{
+          position: 'fixed',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          zIndex: 2000,
+          background: 'white',
+          padding: '20px',
+          borderRadius: '10px',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+          border: '2px solid #06b6d4'
+        }}>
+          <h3 style={{ margin: '0 0 15px 0', color: '#333' }}>Add Text</h3>
+          <input
+            type="text"
+            value={textInput}
+            onChange={(e) => setTextInput(e.target.value)}
+            placeholder="Enter your text..."
+            style={{
+              width: '300px',
+              padding: '10px',
+              border: '1px solid #ccc',
+              borderRadius: '5px',
+              fontSize: '16px',
+              marginBottom: '15px'
+            }}
+            autoFocus
+            onKeyPress={(e) => e.key === 'Enter' && handleTextSubmit()}
+          />
+          <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+            <button
+              onClick={() => setShowTextInput(false)}
+              style={{
+                padding: '8px 16px',
+                background: '#ccc',
+                border: 'none',
+                borderRadius: '5px',
+                cursor: 'pointer'
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleTextSubmit}
+              style={{
+                padding: '8px 16px',
+                background: '#06b6d4',
+                color: 'white',
+                border: 'none',
+                borderRadius: '5px',
+                cursor: 'pointer'
+              }}
+            >
+              Add Text
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Chat Component */}
       {showChat && (
         <div style={{

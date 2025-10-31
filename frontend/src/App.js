@@ -19,6 +19,8 @@ const CanvasPage = () => {
   const [tool, setTool] = useState('brush');
   const [color, setColor] = useState('#000000');
   const [width, setWidth] = useState(5);
+  const [fillColor, setFillColor] = useState('transparent');
+  const [fontSize, setFontSize] = useState(16);
   const canvasBoardRef = useRef();
   const [showVideo, setShowVideo] = useState(false);
   const [showChat, setShowChat] = useState(false);
@@ -46,6 +48,10 @@ const CanvasPage = () => {
           setColor={setColor}
           width={width}
           setWidth={setWidth}
+          fillColor={fillColor}
+          setFillColor={setFillColor}
+          fontSize={fontSize}
+          setFontSize={setFontSize}
           saveSnapshot={handleSaveSnapshot}
           toggleVideo={() => setShowVideo(!showVideo)}
           toggleChat={() => setShowChat(!showChat)}
@@ -57,6 +63,8 @@ const CanvasPage = () => {
           tool={tool}
           color={color}
           width={width}
+          fillColor={fillColor}
+          fontSize={fontSize}
           roomId={roomId}
           showVideo={showVideo}
           showChat={showChat}

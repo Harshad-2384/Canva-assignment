@@ -9,6 +9,7 @@ const VideoProvider = ({ children, roomId }) => {
 
   const [stream, setStream] = useState(null);
   const [peers, setPeers] = useState([]);
+  const [isVideoSetup, setIsVideoSetup] = useState(false);
   const myVideo = useRef();
   const peersRef = useRef([]);
 
@@ -16,10 +17,18 @@ const VideoProvider = ({ children, roomId }) => {
     if (!socket) return;
 
     const setupStream = async () => {
+      if (isVideoSetup) {
+        console.log('📹 Video already setup, skipping...');
+        return;
+      }
+      
       try {
+        console.log('📹 Setting up video stream...');
         const currentStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         console.log('📹 Got media stream:', currentStream);
         setStream(currentStream);
+        setIsVideoSetup(true);
+        
         if (myVideo.current) {
           console.log('📹 Setting stream to myVideo element');
           myVideo.current.srcObject = currentStream;
@@ -32,24 +41,38 @@ const VideoProvider = ({ children, roomId }) => {
         socket.on('all-users', (users) => {
           console.log('📹 Received all-users:', users);
           // Clear existing peers to prevent duplicates
-          peersRef.current.forEach(({ peer }) => peer.destroy());
+          peersRef.current.forEach(({ peer }) => {
+            if (peer && typeof peer.destroy === 'function') {
+              peer.destroy();
+            }
+          });
+          peersRef.current = [];
+          setPeers([]);
           
-          const peers = users.map(userInfo => {
+          const newPeers = users.map(userInfo => {
             const userID = typeof userInfo === 'string' ? userInfo : userInfo.socketId;
-            const userName = typeof userInfo === 'object' ? userInfo.name : null;
+            const userName = typeof userInfo === 'object' ? userInfo.name : `User ${userID.substring(0, 8)}`;
             console.log('📹 Creating peer for user:', userID, 'name:', userName);
             const peer = createPeer(userID, socket.id, currentStream);
             return { peerID: userID, peer, userName };
           });
-          console.log('📹 Created peers:', peers.length);
-          peersRef.current = peers;
-          setPeers(peers);
+          console.log('📹 Created peers:', newPeers.length);
+          peersRef.current = newPeers;
+          setPeers(newPeers);
         });
 
         socket.on('user-joined', (payload) => {
-          console.log('📹 User joined:', payload.callerID);
+          console.log('📹 User joined:', payload.callerID, 'userName:', payload.userName);
+          // Check if peer already exists to prevent duplicates
+          const existingPeer = peersRef.current.find(p => p.peerID === payload.callerID);
+          if (existingPeer) {
+            console.log('📹 Peer already exists for:', payload.callerID, 'skipping...');
+            return;
+          }
+          
           const peer = addPeer(payload.signal, payload.callerID, currentStream);
-          const newPeer = { peerID: payload.callerID, peer };
+          const userName = payload.userName || `User ${payload.callerID.substring(0, 8)}`;
+          const newPeer = { peerID: payload.callerID, peer, userName };
           peersRef.current.push(newPeer);
           setPeers(users => [...users, newPeer]);
         });
@@ -82,15 +105,32 @@ const VideoProvider = ({ children, roomId }) => {
     setupStream();
 
     return () => {
+      console.log('📹 Cleaning up VideoContext...');
       socket.off('all-users');
       socket.off('user-joined');
       socket.off('receiving-returned-signal');
       socket.off('user-left');
+      
+      // Clean up all peer connections
+      peersRef.current.forEach(({ peer }) => {
+        if (peer && typeof peer.destroy === 'function') {
+          peer.destroy();
+        }
+      });
+      peersRef.current = [];
+      setPeers([]);
+      
+      // Stop media tracks
       if (stream) {
-        stream.getTracks().forEach(track => track.stop());
+        stream.getTracks().forEach(track => {
+          track.stop();
+          console.log('📹 Stopped track:', track.kind);
+        });
+        setStream(null);
       }
+      setIsVideoSetup(false);
     };
-  }, [socket, roomId]);
+  }, [socket, roomId, isVideoSetup]);
 
   function createPeer(userToSignal, callerID, stream) {
     console.log('📹 Creating peer connection to:', userToSignal, 'with stream:', !!stream);
