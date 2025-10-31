@@ -73,12 +73,12 @@ io.use(async (socket, next) => {
   next();
 });
 
-// MongoDB connection
+// MongoDB connection (optional for testing)
 const connectDB = async () => {
   console.log('5. Attempting MongoDB connection...');
   if (!process.env.MONGO_URI) {
-    console.error('MONGO_URI is not defined in .env file');
-    process.exit(1);
+    console.warn('MONGO_URI is not defined in .env file - running without database');
+    return;
   }
 
   try {
@@ -87,8 +87,7 @@ const connectDB = async () => {
     });
     console.log('MongoDB connected successfully.');
   } catch (err) {
-    console.error('MongoDB connection failed:', err.message);
-    process.exit(1); // Exit if MongoDB connection fails
+    console.warn('MongoDB connection failed, running without database:', err.message);
   }
 };
 
@@ -136,10 +135,18 @@ io.on('connection', socket => {
       y: 0 
     };
 
-    // Load canvas session
-    let session = await CanvasSession.findOne({ roomId });
-    if (!session) {
-      session = await CanvasSession.create({ roomId, owner: userId, strokes: [] });
+    // Load canvas session (with fallback for no database)
+    let session = { strokes: [], snapshot: null };
+    try {
+      if (mongoose.connection.readyState === 1) {
+        let dbSession = await CanvasSession.findOne({ roomId });
+        if (!dbSession) {
+          dbSession = await CanvasSession.create({ roomId, owner: userId, strokes: [] });
+        }
+        session = dbSession;
+      }
+    } catch (error) {
+      console.warn('Database operation failed, using empty session:', error.message);
     }
 
     // Send canvas data to joining user
@@ -156,8 +163,14 @@ io.on('connection', socket => {
     // Broadcast to others in the room (except the sender)
     socket.broadcast.to(roomId).emit('remote-stroke', stroke);
     console.log(`Broadcasted stroke to room ${roomId}`);
-    // persist stroke (append)
-    await CanvasSession.updateOne({ roomId }, { $push: { strokes: stroke }, $set: { updatedAt: new Date() }});
+    // persist stroke (append) - with database fallback
+    try {
+      if (mongoose.connection.readyState === 1) {
+        await CanvasSession.updateOne({ roomId }, { $push: { strokes: stroke }, $set: { updatedAt: new Date() }});
+      }
+    } catch (error) {
+      console.warn('Failed to persist stroke to database:', error.message);
+    }
   });
 
   socket.on('cursor-move', ({ roomId, x, y }) => {
@@ -198,7 +211,13 @@ io.on('connection', socket => {
   });
 
   socket.on('save-snapshot', async ({ roomId, snapshotBase64 }) => {
-    await CanvasSession.updateOne({ roomId }, { $set: { snapshot: snapshotBase64 }});
+    try {
+      if (mongoose.connection.readyState === 1) {
+        await CanvasSession.updateOne({ roomId }, { $set: { snapshot: snapshotBase64 }});
+      }
+    } catch (error) {
+      console.warn('Failed to save snapshot to database:', error.message);
+    }
   });
 
   socket.on('disconnecting', () => {

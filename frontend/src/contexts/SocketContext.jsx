@@ -17,12 +17,13 @@ export default function SocketProvider({ children }) {
         token: token || '',
       },
       transports: ['polling', 'websocket'],
-      forceNew: true,
+      forceNew: false, // Don't force new connection - reuse existing if available
       reconnection: true,
       timeout: 10000,
       upgrade: true,
+      autoConnect: true,
     });
-  }, []);
+  }, []); // Empty dependency array ensures socket is created only once
 
   // Function to send chat message
   const sendChatMessage = (messageData) => {
@@ -71,12 +72,16 @@ export default function SocketProvider({ children }) {
 
     // Cleanup on component unmount
     return () => {
+      console.log('Cleaning up socket listeners and disconnecting...');
       socket.off('connect');
       socket.off('connect_error');
       socket.off('disconnect');
       socket.off('chat-message');
       socket.offAny();
-      socket.disconnect();
+      // Only disconnect if the socket is connected
+      if (socket.connected) {
+        socket.disconnect();
+      }
     };
   }, [socket]);
 
