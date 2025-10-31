@@ -18,9 +18,13 @@ const VideoProvider = ({ children, roomId }) => {
     const setupStream = async () => {
       try {
         const currentStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        console.log('📹 Got media stream:', currentStream);
         setStream(currentStream);
         if (myVideo.current) {
+          console.log('📹 Setting stream to myVideo element');
           myVideo.current.srcObject = currentStream;
+        } else {
+          console.log('📹 myVideo.current is null, will set later');
         }
 
         socket.emit('join-video-room', roomId);

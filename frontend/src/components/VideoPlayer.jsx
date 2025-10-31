@@ -24,16 +24,34 @@ const Video = ({ peer }) => {
 const VideoPlayer = () => {
   const { myVideo, stream, peers, toggleVideo, toggleAudio } = useContext(VideoContext);
 
+  // Ensure local video shows the stream
+  useEffect(() => {
+    if (myVideo.current && stream) {
+      console.log('📹 Setting local video stream');
+      myVideo.current.srcObject = stream;
+    }
+  }, [stream, myVideo]);
+
+  console.log('📹 VideoPlayer render - peers count:', peers.length, 'stream:', !!stream);
+
   return (
     <div className="video-grid-container">
-      <div className="video-player">
-        <video muted ref={myVideo} autoPlay playsInline />
-      </div>
+      {/* My Video */}
+      {stream && (
+        <div className="video-player">
+          <video muted ref={myVideo} autoPlay playsInline />
+          <div className="video-label">You</div>
+        </div>
+      )}
+      
+      {/* Remote Videos */}
       {peers.map(({ peerID, peer }) => (
         <div key={peerID} className="video-player">
           <Video peer={peer} />
+          <div className="video-label">{peerID.substring(0, 8)}</div>
         </div>
       ))}
+      
       <div className="media-controls">
         <button onClick={toggleVideo} className="btn-media">Toggle Video</button>
         <button onClick={toggleAudio} className="btn-media">Toggle Audio</button>
