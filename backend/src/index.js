@@ -116,6 +116,17 @@ io.on('connection', socket => {
     // Initialize room presence if needed
     if (!rooms[roomId]) rooms[roomId] = {};
     
+    // Check if this user is already in the room (by userId, not socketId)
+    // Remove any existing entries for this user to prevent duplicates
+    if (user) {
+      for (const socketId in rooms[roomId]) {
+        if (rooms[roomId][socketId].id === userId) {
+          console.log(`Removing duplicate user entry for ${userName} (old socket: ${socketId})`);
+          delete rooms[roomId][socketId];
+        }
+      }
+    }
+    
     // Add user to presence map
     rooms[roomId][socket.id] = { 
       id: userId, 
@@ -191,15 +202,31 @@ io.on('connection', socket => {
   });
 
   socket.on('disconnecting', () => {
+    console.log(`Socket ${socket.id} disconnecting from rooms:`, Array.from(socket.rooms));
     // notify rooms and clean up presence
     for (const roomId of socket.rooms) {
       if (roomId !== socket.id && rooms[roomId]) {
         const leavingUser = rooms[roomId][socket.id];
         delete rooms[roomId][socket.id];
+        
+        // Also clean up video room
+        if (videoRooms[roomId]) {
+          videoRooms[roomId] = videoRooms[roomId].filter(id => id !== socket.id);
+          if (videoRooms[roomId].length === 0) {
+            delete videoRooms[roomId];
+          }
+        }
+        
         // Broadcast the updated presence list to all remaining clients
         const remainingUsers = Object.values(rooms[roomId]);
         io.to(roomId).emit('presence', { users: remainingUsers });
-        console.log(`${leavingUser?.name} left room ${roomId}`);
+        console.log(`${leavingUser?.name || 'Unknown user'} left room ${roomId}, ${remainingUsers.length} users remaining`);
+        
+        // Clean up empty room
+        if (remainingUsers.length === 0) {
+          delete rooms[roomId];
+          console.log(`Room ${roomId} is now empty and has been cleaned up`);
+        }
       }
     }
   });
@@ -211,9 +238,12 @@ io.on('connection', socket => {
   // Group Video Call Signaling
   socket.on('join-video-room', (roomId) => {
     console.log('📹 User', socket.id, 'joining video room:', roomId);
+    
+    // Remove any existing entry for this socket to prevent duplicates
     if (videoRooms[roomId]) {
+      videoRooms[roomId] = videoRooms[roomId].filter(id => id !== socket.id);
+      
       const allUsers = videoRooms[roomId]
-        .filter(id => id !== socket.id)
         .map(id => {
           // Find user info from rooms data
           const userInfo = rooms[roomId] && rooms[roomId][id];
