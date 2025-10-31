@@ -98,7 +98,7 @@ const VideoProvider = ({ children, roomId }) => {
     });
 
     peer.on('stream', (remoteStream) => {
-      console.log('📹 Received stream from:', userToSignal);
+      console.log('📹 Received stream from:', userToSignal, 'Stream tracks:', remoteStream.getTracks().length);
     });
 
     peer.on('connect', () => {
@@ -126,7 +126,7 @@ const VideoProvider = ({ children, roomId }) => {
     });
 
     peer.on('stream', (remoteStream) => {
-      console.log('📹 Received stream from caller:', callerID);
+      console.log('📹 Received stream from caller:', callerID, 'Stream tracks:', remoteStream.getTracks().length);
     });
 
     peer.on('connect', () => {
