@@ -26,15 +26,19 @@ const VideoProvider = ({ children, roomId }) => {
         socket.emit('join-video-room', roomId);
 
         socket.on('all-users', (users) => {
+          console.log('📹 Received all-users:', users);
           const peers = users.map(userID => {
+            console.log('📹 Creating peer for user:', userID);
             const peer = createPeer(userID, socket.id, currentStream);
             return { peerID: userID, peer };
           });
+          console.log('📹 Created peers:', peers.length);
           peersRef.current = peers;
           setPeers(peers);
         });
 
         socket.on('user-joined', (payload) => {
+          console.log('📹 User joined:', payload.callerID);
           const peer = addPeer(payload.signal, payload.callerID, currentStream);
           const newPeer = { peerID: payload.callerID, peer };
           peersRef.current.push(newPeer);
@@ -77,6 +81,7 @@ const VideoProvider = ({ children, roomId }) => {
   }, [socket, roomId]);
 
   function createPeer(userToSignal, callerID, stream) {
+    console.log('📹 Creating peer connection to:', userToSignal);
     const peer = new Peer({
       initiator: true,
       trickle: false,
@@ -84,13 +89,27 @@ const VideoProvider = ({ children, roomId }) => {
     });
 
     peer.on('signal', (signal) => {
+      console.log('📹 Sending signal to:', userToSignal);
       socket.emit('sending-signal', { userToSignal, callerID, signal });
+    });
+
+    peer.on('stream', (remoteStream) => {
+      console.log('📹 Received stream from:', userToSignal);
+    });
+
+    peer.on('connect', () => {
+      console.log('📹 Peer connected:', userToSignal);
+    });
+
+    peer.on('error', (err) => {
+      console.error('📹 Peer error:', err);
     });
 
     return peer;
   }
 
   function addPeer(incomingSignal, callerID, stream) {
+    console.log('📹 Adding peer for caller:', callerID);
     const peer = new Peer({
       initiator: false,
       trickle: false,
@@ -98,7 +117,20 @@ const VideoProvider = ({ children, roomId }) => {
     });
 
     peer.on('signal', (signal) => {
+      console.log('📹 Returning signal to:', callerID);
       socket.emit('returning-signal', { signal, callerID });
+    });
+
+    peer.on('stream', (remoteStream) => {
+      console.log('📹 Received stream from caller:', callerID);
+    });
+
+    peer.on('connect', () => {
+      console.log('📹 Peer connected with caller:', callerID);
+    });
+
+    peer.on('error', (err) => {
+      console.error('📹 Peer error with caller:', err);
     });
 
     peer.signal(incomingSignal);

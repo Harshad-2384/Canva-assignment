@@ -210,21 +210,27 @@ io.on('connection', socket => {
 
   // Group Video Call Signaling
   socket.on('join-video-room', (roomId) => {
+    console.log('📹 User', socket.id, 'joining video room:', roomId);
     if (videoRooms[roomId]) {
       const allUsers = videoRooms[roomId].filter(id => id !== socket.id);
+      console.log('📹 Existing users in room:', allUsers);
       socket.emit('all-users', allUsers);
       videoRooms[roomId].push(socket.id);
     } else {
+      console.log('📹 Creating new video room:', roomId);
       videoRooms[roomId] = [socket.id];
       socket.emit('all-users', []);
     }
+    console.log('📹 Video room', roomId, 'now has users:', videoRooms[roomId]);
   });
 
   socket.on('sending-signal', (payload) => {
+    console.log('📹 Relaying signal from', payload.callerID, 'to', payload.userToSignal);
     io.to(payload.userToSignal).emit('user-joined', { signal: payload.signal, callerID: payload.callerID });
   });
 
   socket.on('returning-signal', (payload) => {
+    console.log('📹 Returning signal from', socket.id, 'to', payload.callerID);
     io.to(payload.callerID).emit('receiving-returned-signal', { signal: payload.signal, id: socket.id });
   });
 
