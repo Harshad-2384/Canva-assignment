@@ -212,7 +212,16 @@ io.on('connection', socket => {
   socket.on('join-video-room', (roomId) => {
     console.log('📹 User', socket.id, 'joining video room:', roomId);
     if (videoRooms[roomId]) {
-      const allUsers = videoRooms[roomId].filter(id => id !== socket.id);
+      const allUsers = videoRooms[roomId]
+        .filter(id => id !== socket.id)
+        .map(id => {
+          // Find user info from rooms data
+          const userInfo = rooms[roomId] && rooms[roomId][id];
+          return {
+            socketId: id,
+            name: userInfo ? userInfo.name : 'Anonymous'
+          };
+        });
       console.log('📹 Existing users in room:', allUsers);
       socket.emit('all-users', allUsers);
       videoRooms[roomId].push(socket.id);

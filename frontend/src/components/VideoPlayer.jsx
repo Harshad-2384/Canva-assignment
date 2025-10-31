@@ -88,10 +88,10 @@ const VideoPlayer = () => {
       )}
       
       {/* Remote Videos - only show if we have actual peer connections */}
-      {peers.length > 0 && peers.map(({ peerID, peer }) => (
+      {peers.length > 0 && peers.map(({ peerID, peer, userName }) => (
         <div key={peerID} className="video-player">
           <Video peer={peer} peerID={peerID} />
-          <div className="video-label">User {peerID.substring(0, 8)}</div>
+          <div className="video-label">{userName || `User ${peerID.substring(0, 8)}`}</div>
         </div>
       ))}
       

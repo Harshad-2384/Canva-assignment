@@ -31,10 +31,15 @@ const VideoProvider = ({ children, roomId }) => {
 
         socket.on('all-users', (users) => {
           console.log('📹 Received all-users:', users);
-          const peers = users.map(userID => {
-            console.log('📹 Creating peer for user:', userID);
+          // Clear existing peers to prevent duplicates
+          peersRef.current.forEach(({ peer }) => peer.destroy());
+          
+          const peers = users.map(userInfo => {
+            const userID = typeof userInfo === 'string' ? userInfo : userInfo.socketId;
+            const userName = typeof userInfo === 'object' ? userInfo.name : null;
+            console.log('📹 Creating peer for user:', userID, 'name:', userName);
             const peer = createPeer(userID, socket.id, currentStream);
-            return { peerID: userID, peer };
+            return { peerID: userID, peer, userName };
           });
           console.log('📹 Created peers:', peers.length);
           peersRef.current = peers;
@@ -57,13 +62,16 @@ const VideoProvider = ({ children, roomId }) => {
         });
 
         socket.on('user-left', (id) => {
+          console.log('📹 User left:', id);
           const peerObj = peersRef.current.find(p => p.peerID === id);
           if (peerObj) {
+            console.log('📹 Destroying peer connection for:', id);
             peerObj.peer.destroy();
           }
           const newPeers = peersRef.current.filter(p => p.peerID !== id);
           peersRef.current = newPeers;
           setPeers(newPeers);
+          console.log('📹 Remaining peers after user left:', newPeers.length);
         });
 
       } catch (error) {
