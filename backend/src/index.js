@@ -136,12 +136,12 @@ io.on('connection', socket => {
     };
 
     // Load canvas session (with fallback for no database)
-    let session = { strokes: [], snapshot: null };
+    let session = { strokes: [], shapes: [], snapshot: null };
     try {
       if (mongoose.connection.readyState === 1) {
         let dbSession = await CanvasSession.findOne({ roomId });
         if (!dbSession) {
-          dbSession = await CanvasSession.create({ roomId, owner: userId, strokes: [] });
+          dbSession = await CanvasSession.create({ roomId, owner: userId, strokes: [], shapes: [] });
         }
         session = dbSession;
       }
@@ -150,7 +150,7 @@ io.on('connection', socket => {
     }
 
     // Send canvas data to joining user
-    socket.emit('load-canvas', { strokes: session.strokes, snapshot: session.snapshot });
+    socket.emit('load-canvas', { strokes: session.strokes, shapes: session.shapes || [], snapshot: session.snapshot });
 
     // Broadcast the updated presence list to all clients in the room
     const usersInRoom = Object.values(rooms[roomId]);
@@ -170,6 +170,21 @@ io.on('connection', socket => {
       }
     } catch (error) {
       console.warn('Failed to persist stroke to database:', error.message);
+    }
+  });
+
+  socket.on('draw-shape', async ({ roomId, shape }) => {
+    console.log(`Draw shape in room ${roomId} from ${socket.id}:`, shape.tool);
+    // Broadcast to others in the room (except the sender)
+    socket.broadcast.to(roomId).emit('remote-shape', shape);
+    console.log(`Broadcasted shape to room ${roomId}`);
+    // persist shape (append) - with database fallback
+    try {
+      if (mongoose.connection.readyState === 1) {
+        await CanvasSession.updateOne({ roomId }, { $push: { shapes: shape }, $set: { updatedAt: new Date() }});
+      }
+    } catch (error) {
+      console.warn('Failed to persist shape to database:', error.message);
     }
   });
 

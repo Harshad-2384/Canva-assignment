@@ -90,7 +90,7 @@ io.on('connection', socket => {
     };
 
     // Send empty canvas data for testing
-    socket.emit('load-canvas', { strokes: [], snapshot: null });
+    socket.emit('load-canvas', { strokes: [], shapes: [], snapshot: null });
 
     // Broadcast the updated presence list to all clients in the room
     const usersInRoom = Object.values(rooms[roomId]);
@@ -101,6 +101,11 @@ io.on('connection', socket => {
   socket.on('draw-stroke', async ({ roomId, stroke }) => {
     console.log(`Draw stroke in room ${roomId} from ${socket.id}`);
     socket.broadcast.to(roomId).emit('remote-stroke', stroke);
+  });
+
+  socket.on('draw-shape', async ({ roomId, shape }) => {
+    console.log(`Draw shape in room ${roomId} from ${socket.id}:`, shape.tool);
+    socket.broadcast.to(roomId).emit('remote-shape', shape);
   });
 
   socket.on('cursor-move', ({ roomId, x, y }) => {
